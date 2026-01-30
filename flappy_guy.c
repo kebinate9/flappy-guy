@@ -29,7 +29,10 @@ int main(void) {
 
   int flapper_posx = 50;
   int flapper_posy = 200;
-  float rotation = 180;
+
+  float rotation_top    = 0;
+  float rotation_bottom = 180;
+
   while (!WindowShouldClose()) {
 
     if (flapper_posy >= WINHEIGHT-110){
@@ -44,14 +47,16 @@ int main(void) {
       ClearBackground(BLUE);
       DrawTexture(flappers[flapper_index], flapper_posx, flapper_posy, WHITE);
       DrawTexture(cloud1, 30, 10, WHITE);
-      DrawTexture(obstacle, 400, 300, WHITE);
-      DrawTexture(obstacle, 600, 400, WHITE);
 
       Rectangle source = {0, 0, obstacle.width, obstacle.height};
-      Rectangle dest = {400, 300, obstacle.width, obstacle.height};
+      Rectangle dest = {400, 300, obstacle.width*2, obstacle.height*2};
       Vector2 origin = {obstacle.width/2.0f, obstacle.height/2.0f};
 
-      DrawTexturePro(obstacle, source, dest, origin, rotation, WHITE);
+      DrawTexturePro(obstacle, source, dest, origin, rotation_top, WHITE);
+      DrawTexturePro(obstacle, source, dest, origin, rotation_bottom, WHITE);
+      DrawTexturePro(obstacle, source, dest, origin, rotation_top, WHITE);
+      DrawTexturePro(obstacle, source, dest, origin, rotation_bottom, WHITE);
+      DrawTexturePro(obstacle, source, dest, origin, rotation_top, WHITE);
 
       if (IsKeyPressed(KEY_SPACE)) {
         flapper_posy -= 40; // this makes the flapper jump, would like to turn this into an easing animation
