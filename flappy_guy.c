@@ -4,9 +4,27 @@
 #include "raylib.h"
 
 #define MAX_COLORS_COUNT 21
+#define OBSTACLE_COUNT 100
 
+typedef struct {
+  Rectangle dest;
+  float rotation;
+} Obstacle;
+
+Obstacle obstacles[OBSTACLE_COUNT];
+
+Texture2D obstacle;
+
+const int FPS        = 60;
 const int WINWIDTH   = 1200;
 const int WINHEIGHT  = 600;
+const int CENTERX    = WINWIDTH/2;
+const int CENTERY    = WINHEIGHT/2;
+bool is_dead = false;
+Texture2D flapper_img1 = LoadTexture("./assets/flapper1.png");
+Texture2D flapper_img2 = LoadTexture("./assets/flapper2.png");
+int flapper_index = 0;
+Texture2D flappers[] = {flapper_img1, flapper_img2};
 
 Color colors[MAX_COLORS_COUNT] = {
   DARKGRAY, MAROON, ORANGE, DARKGREEN, DARKBLUE, DARKPURPLE, DARKBROWN,
@@ -14,73 +32,113 @@ Color colors[MAX_COLORS_COUNT] = {
   GREEN, SKYBLUE, PURPLE, BEIGE
 };
 
-int falling(int wh, int ww, int *fy, int *fx) {
-  if (*fy >= wh-110){
-    BeginDrawing();
-    DrawText("FLAPPY GUY IS DEAD", ww/3, 100, 50, RED);
-    EndDrawing();
-  }else { // this makes the flapper move horizontally and fall
-    (*fy) +=2;
-    (*fx) ++;
+int jumping(float *fy, int *fx) {
+  static float velY = 0.0f;
+  const float gravity = 0.5f;
+  const float jumpForce = -10.0f;
+
+  if (IsKeyPressed(KEY_SPACE)) {
+    velY = jumpForce;
+  }
+
+  velY += gravity;
+  *fy += velY;
+  *fx += 2;
+
+  if(*fy > WINHEIGHT-110) {
+    *fy = 490.0f;
+    velY = 0.0f;
+  }
+  return 0;
+}
+
+void init_obstacles(void) {
+  for(int i = 0; i < OBSTACLE_COUNT; i++) {
+    float scale = GetRandomValue(15, 30) / 10.0f;
+
+    obstacles[i].dest = (Rectangle) {
+      GetRandomValue(0, 2000),
+      GetRandomValue(500, 550),
+      obstacle.width * scale,
+      obstacle.height * scale
+    };
+
+    obstacles[i].rotation = 0.0f;
   }
 }
 
 int main(void) {
   InitWindow(WINWIDTH, WINHEIGHT, "Flappy Guy");
-  SetTargetFPS(60);
-  Texture2D flapper_img1 = LoadTexture("./assets/flapper1.png");
-  Texture2D flapper_img2 = LoadTexture("./assets/flapper2.png");
+  SetTargetFPS(FPS);
+  bool game_start = false;
+
+  // load textures
   Texture2D cloud1       = LoadTexture("./assets/cloud1.png");
-  Texture2D obstacle     = LoadTexture("./assets/obstacle.png");
+  obstacle               = LoadTexture("./assets/obstacle.png");
 
-  int flapper_index = 0;
-  Texture2D flappers[] = {flapper_img1, flapper_img2};
-
+  // flapper initial position
   int flapper_posx = 50;
-  int flapper_posy = 200;
-
+  float flapper_posy = 200;
+  
+  // controls the rotation for obstacle textures
   float rotation_top    = 0;
   float rotation_bottom = 180;
-
   
-
-  while (!WindowShouldClose()) {
-
-    falling(WINHEIGHT, WINWIDTH, &flapper_posy, &flapper_posx);
-    
-    printf("x=%d, y=%d\n", flapper_posx, flapper_posy);
-    BeginDrawing(); // drawing loop
-      ClearBackground(BLUE);
-      DrawTexture(flappers[flapper_index], flapper_posx, flapper_posy, WHITE);
-      DrawTexture(cloud1, 30, 10, WHITE);
-
-      Rectangle source = {0, 0, obstacle.width, obstacle.height};
-      Rectangle dest = {400, 300, obstacle.width*2, obstacle.height*2};
-      Vector2 origin = {obstacle.width/2.0f, obstacle.height/2.0f};
-
-      DrawTexturePro(obstacle, source, dest, origin, rotation_top, WHITE);
-      DrawTexturePro(obstacle, source, dest, origin, rotation_bottom, WHITE);
-      DrawTexturePro(obstacle, source, dest, origin, rotation_top, WHITE);
-      DrawTexturePro(obstacle, source, dest, origin, rotation_bottom, WHITE);
-      DrawTexturePro(obstacle, source, dest, origin, rotation_top, WHITE);
-
-      if (IsKeyPressed(KEY_SPACE)) {
-        flapper_posy -= 40; // this makes the flapper jump, would like to turn this into an easing animation
-        if (flapper_index == 0) {
-          flapper_index = 1;
-      } else {
-          flapper_index = 0;
-      }
-    }
+  while (!game_start) {
+    BeginDrawing();
+    ClearBackground(SKYBLUE);
+    DrawText("Press space to start", 20, WINHEIGHT/2, 70, BLACK);
     EndDrawing();
+    if(IsKeyPressed(KEY_SPACE)) {
+      game_start = true;
+    }
   }
 
+  init_obstacles();
+  while (!WindowShouldClose() && game_start) {
+    Camera2D camera = {0};
+    camera.offset.x = CENTERX-500;
+    camera.offset.y = CENTERY-100;
+    camera.target.x = flapper_posx;
+    camera.target.y = CENTERY-100;
+    camera.rotation = 0;
+    camera.zoom     = 1.0f;
+
+    BeginDrawing(); // drawing loop
+      BeginMode2D(camera);
+      if(!is_dead) {
+        jumping(&flapper_posy, &flapper_posx);
+        DrawText("Press space to start", WINWIDTH/3, 50, 50, BLACK);
+        printf("x=%d, y=%f fps=%i is_dead=%s\n", flapper_posx, flapper_posy, GetFPS(), is_dead ? "true" : "false"); // debug line
+
+        if(flapper_posy == 490) {
+          is_dead = true;
+          SetTargetFPS(10); // slows down the fps so i can think
+        }
+      }else {
+        DrawText("You are dead", flapper_posx+100, flapper_posy-400, 100, RED);
+        DrawText("Press ESC to quit or space to play again", flapper_posx + 10, flapper_posy-200, 50, BLACK);
+      }
+
+      ClearBackground(SKYBLUE);
+      DrawTexture(flappers[flapper_index], flapper_posx, flapper_posy, WHITE);
+      DrawTexture(cloud1, 30, 10, WHITE);
+      Rectangle source = { 0, 0, obstacle.width, obstacle.height };
+      Vector2 origin = { obstacle.width / 2.0f, obstacle.height / 2.0f };
+
+      for (int i = 0; i < OBSTACLE_COUNT; i++) {
+        DrawTexturePro(
+          obstacle,
+          source,
+          obstacles[i].dest,
+          origin,
+          obstacles[i].rotation,
+          WHITE
+      );
+}
+      EndMode2D();
+    EndDrawing();
+  }
   CloseWindow();
   return EXIT_SUCCESS;
 }
-      // DrawText("Hello World!", 375, 250, 40, GREEN);
-      // BeginMode3D(camera);
-      // DrawCube((Vector3){-4.0f,0.0f,2.0f}, 2.0f, 5.0f,2.0f, RED);
-      // DrawCubeWires ( ( Vector3 ) { -4.0f, 0.0f, 2.0f }, 2.0f, 5.0f, 2.0f, GOLD );
-      // DrawFPS(25, 25);
-      // EndMode3D();
