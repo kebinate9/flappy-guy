@@ -1,24 +1,33 @@
-/*
-* TODO
-* 1. Add obstacle sprites
-*   Obstacle sprites have been added however we need a way to automate
-*   this and randomise their locations within an upper and lower bound.
-* 2. Add collisions
-*   This only needs to be between flapper and pipe obstacles. Clouds
-*   do not count as obstacles and we can ignore this.
-*/
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "raylib.h"
 
+#define MAX_COLORS_COUNT 21
+
 const int WINWIDTH   = 1200;
 const int WINHEIGHT  = 600;
+
+Color colors[MAX_COLORS_COUNT] = {
+  DARKGRAY, MAROON, ORANGE, DARKGREEN, DARKBLUE, DARKPURPLE, DARKBROWN,
+  GRAY, RED, GOLD, LIME, BLUE, VIOLET, BROWN, LIGHTGRAY, PINK, YELLOW,
+  GREEN, SKYBLUE, PURPLE, BEIGE
+};
+
+int falling(int wh, int ww, int *fy, int *fx) {
+  if (*fy >= wh-110){
+    BeginDrawing();
+    DrawText("FLAPPY GUY IS DEAD", ww/3, 100, 50, RED);
+    EndDrawing();
+  }else { // this makes the flapper move horizontally and fall
+    (*fy) +=2;
+    (*fx) ++;
+  }
+}
 
 int main(void) {
   InitWindow(WINWIDTH, WINHEIGHT, "Flappy Guy");
   SetTargetFPS(60);
-
   Texture2D flapper_img1 = LoadTexture("./assets/flapper1.png");
   Texture2D flapper_img2 = LoadTexture("./assets/flapper2.png");
   Texture2D cloud1       = LoadTexture("./assets/cloud1.png");
@@ -33,16 +42,13 @@ int main(void) {
   float rotation_top    = 0;
   float rotation_bottom = 180;
 
+  
+
   while (!WindowShouldClose()) {
 
-    if (flapper_posy >= WINHEIGHT-110){
-      CloseWindow();
-      return EXIT_SUCCESS;
-    }else { // this makes the flapper move horizontally and fall
-      flapper_posy +=2;
-      flapper_posx ++;
-    }
-
+    falling(WINHEIGHT, WINWIDTH, &flapper_posy, &flapper_posx);
+    
+    printf("x=%d, y=%d\n", flapper_posx, flapper_posy);
     BeginDrawing(); // drawing loop
       ClearBackground(BLUE);
       DrawTexture(flappers[flapper_index], flapper_posx, flapper_posy, WHITE);

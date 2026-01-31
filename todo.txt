@@ -1,0 +1,31 @@
+TODO
+1. Add obstacle sprites
+   Obstacle sprites have been added however we need a way to automate
+   this and randomise their locations within an upper and lower bound.
+
+2. Add collisions
+   This only needs to be between flapper and pipe obstacles. Clouds
+   do not count as obstacles and we can ignore these.
+
+3. Make text go rainbow
+   I just want to see if I can figure out a way to do this.
+
+4. Create power-up
+   Create the image
+
+5. Equip a power-up
+   Flapper needs to move along the screen along with the
+   power-up. (Copy the coordinates in a way that looks like
+   he is holding the thing).
+
+6. Make power-up do something
+   E.g. If the power-up is a gun, make it shoot in the 
+   direction of the mouse cursor when clicked.
+
+7. Add soundtrack to the game
+   This should be easy and I just need to find a good 
+   soundtrack, I could even change the soundtrack depending
+   on what is happening in the game.
+
+8. Add other sound effects
+   Applies to in-game events like jumping, dying etc.
