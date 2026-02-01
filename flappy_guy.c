@@ -21,10 +21,6 @@ const int WINHEIGHT  = 600;
 const int CENTERX    = WINWIDTH/2;
 const int CENTERY    = WINHEIGHT/2;
 bool is_dead = false;
-Texture2D flapper_img1 = LoadTexture("./assets/flapper1.png");
-Texture2D flapper_img2 = LoadTexture("./assets/flapper2.png");
-int flapper_index = 0;
-Texture2D flappers[] = {flapper_img1, flapper_img2};
 
 Color colors[MAX_COLORS_COUNT] = {
   DARKGRAY, MAROON, ORANGE, DARKGREEN, DARKBLUE, DARKPURPLE, DARKBROWN,
@@ -33,9 +29,9 @@ Color colors[MAX_COLORS_COUNT] = {
 };
 
 int jumping(float *fy, int *fx) {
-  static float velY = 0.0f;
-  const float gravity = 0.5f;
-  const float jumpForce = -10.0f;
+  static float velY      =   0.0f;
+  const  float gravity   =   0.5f;
+  const  float jumpForce = -10.0f;
 
   if (IsKeyPressed(KEY_SPACE)) {
     velY = jumpForce;
@@ -43,7 +39,7 @@ int jumping(float *fy, int *fx) {
 
   velY += gravity;
   *fy += velY;
-  *fx += 2;
+  *fx += 3;
 
   if(*fy > WINHEIGHT-110) {
     *fy = 490.0f;
@@ -57,8 +53,8 @@ void init_obstacles(void) {
     float scale = GetRandomValue(15, 30) / 10.0f;
 
     obstacles[i].dest = (Rectangle) {
-      GetRandomValue(0, 2000),
-      GetRandomValue(500, 550),
+      (i+1) * 100,
+      GetRandomValue(400, 500),
       obstacle.width * scale,
       obstacle.height * scale
     };
@@ -69,12 +65,20 @@ void init_obstacles(void) {
 
 int main(void) {
   InitWindow(WINWIDTH, WINHEIGHT, "Flappy Guy");
+  InitAudioDevice();
   SetTargetFPS(FPS);
   bool game_start = false;
 
   // load textures
   Texture2D cloud1       = LoadTexture("./assets/cloud1.png");
+  Texture2D flapper_img1 = LoadTexture("./assets/flapper1.png");
+  Texture2D flapper_img2 = LoadTexture("./assets/flapper2.png");
   obstacle               = LoadTexture("./assets/obstacle.png");
+  int flapper_index = 0;
+  Texture2D flappers[] = {flapper_img1, flapper_img2};
+  Music soundtrack      = LoadMusicStream("./assets/soundtrack.mp3");
+  SetMusicVolume(soundtrack, 1.0f);
+  PlayMusicStream(soundtrack);
 
   // flapper initial position
   int flapper_posx = 50;
@@ -93,9 +97,11 @@ int main(void) {
       game_start = true;
     }
   }
-
   init_obstacles();
   while (!WindowShouldClose() && game_start) {
+
+  UpdateMusicStream(soundtrack);
+
     Camera2D camera = {0};
     camera.offset.x = CENTERX-500;
     camera.offset.y = CENTERY-100;
@@ -104,13 +110,12 @@ int main(void) {
     camera.rotation = 0;
     camera.zoom     = 1.0f;
 
+    
     BeginDrawing(); // drawing loop
       BeginMode2D(camera);
       if(!is_dead) {
         jumping(&flapper_posy, &flapper_posx);
-        DrawText("Press space to start", WINWIDTH/3, 50, 50, BLACK);
         printf("x=%d, y=%f fps=%i is_dead=%s\n", flapper_posx, flapper_posy, GetFPS(), is_dead ? "true" : "false"); // debug line
-
         if(flapper_posy == 490) {
           is_dead = true;
           SetTargetFPS(10); // slows down the fps so i can think
@@ -118,6 +123,12 @@ int main(void) {
       }else {
         DrawText("You are dead", flapper_posx+100, flapper_posy-400, 100, RED);
         DrawText("Press ESC to quit or space to play again", flapper_posx + 10, flapper_posy-200, 50, BLACK);
+        if(IsKeyPressed(KEY_SPACE)) { 
+          flapper_posy = 200;
+          flapper_posx = 50;
+          SetTargetFPS(60);
+          is_dead = false;
+        }
       }
 
       ClearBackground(SKYBLUE);
@@ -139,6 +150,8 @@ int main(void) {
       EndMode2D();
     EndDrawing();
   }
+  UnloadMusicStream(soundtrack);
+  CloseAudioDevice();
   CloseWindow();
   return EXIT_SUCCESS;
 }
