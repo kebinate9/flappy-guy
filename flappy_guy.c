@@ -23,17 +23,50 @@ typedef struct {
   float x, y;
   float velocity;
   int alive; // 0 - dead, 1 - alive, 2 - dying
-  Rectangle flapperRect;
+  Rectangle rect;
   Texture2D texture;
 } Flapper;
 
 // init pipes
 typedef struct {
   float x, y;
-  Rectangle pipeRect;
+  Rectangle rect;
   Texture texture;
   bool active;
 } Pipe;
+
+void close_game(){
+ // UnloadMusicStream(*soundtrack);
+  CloseAudioDevice();
+  CloseWindow();
+}
+
+void main_menu(bool *playing, bool *exit_game){
+  static int currentItem = 0;
+  static int menuCount = 3;
+
+  if(IsKeyPressed(KEY_DOWN)){
+    currentItem++;
+    if(currentItem>=menuCount) currentItem = 0;
+    printf("currentitem=%d\n", currentItem);
+  }
+
+  if(IsKeyPressed(KEY_UP)){
+    currentItem--;
+    if(currentItem<0) currentItem = menuCount-1;
+    printf("currentitem=%d\n", currentItem);
+  }
+
+  if(currentItem == 0 && IsKeyPressed(KEY_ENTER)) *playing = true;
+  
+  if(currentItem == 2 && IsKeyPressed(KEY_ENTER)) *exit_game = true;
+
+  ClearBackground(SKYBLUE);
+  DrawText("PLAY", SCREENWIDTH/2, SCREENHEIGHT/4, 50, currentItem == 0 ? WHITE : BLACK);
+  DrawText("SETTINGS", SCREENWIDTH/2, SCREENHEIGHT/3, 50, currentItem == 1 ? WHITE : BLACK);
+  DrawText("QUIT", SCREENWIDTH/2, SCREENHEIGHT/2, 50, currentItem == 2 ? WHITE : BLACK);
+}
+
 
 Flapper Flapper_Init(float x, float y) {
   Flapper f = {0};
@@ -42,11 +75,11 @@ Flapper Flapper_Init(float x, float y) {
   f.velocity = 0.0f;
   f.alive    = 1;
   f.texture = LoadTexture("./assets/flapper1.png");
-  f.flapperRect = (Rectangle){
-    .x = x,
-    .y = y,
-    .width  = f.texture.width,
-    .height = f.texture.height,
+  f.rect = (Rectangle){
+    .x = f.texture.width  * 0.1f,
+    .y = f.texture.height * 0.25f,
+    .width  = f.texture.width * 0.8f,
+    .height = f.texture.height * 0.5f,
   };
   if(!f.alive){
     UnloadTexture(f.texture);
@@ -54,13 +87,13 @@ Flapper Flapper_Init(float x, float y) {
   return f;
 }
 
-void Init_Pipes(Pipe pipes[], int count, float startX) {
+void Init_Pipes(Pipe pipes[], int count, float startX, Texture2D pipeTexture) {
   for(int i=0; i < count; i++){
-    pipes[i].pipeRect.x = startX + i * PIPE_SPACING;
-    pipes[i].pipeRect.y = GetRandomValue(SCREENHEIGHT-300, SCREENHEIGHT-100);
-    pipes[i].texture = LoadTexture("./assets/obstacle.png");
-    pipes[i].pipeRect.width = pipes[i].texture.width;
-    pipes[i].pipeRect.height = pipes[i].texture.height;
+    pipes[i].rect.x = startX + i * PIPE_SPACING;
+    pipes[i].rect.y = GetRandomValue(SCREENHEIGHT-300, SCREENHEIGHT-100);
+    pipes[i].texture = pipeTexture;
+    pipes[i].rect.width = pipes[i].texture.width;
+    pipes[i].rect.height = pipes[i].texture.height;
     pipes[i].active = true;
   }
 }
@@ -71,7 +104,7 @@ void flapper_movement(Flapper *flapper) {
   const float jumpForce = -10.0f;
 
   while(flapper->alive){
-    flapper->flapperRect.x += 1;
+    flapper->rect.x += 1;
 
     if(IsKeyPressed(KEY_SPACE)){
       velY = jumpForce;
@@ -79,22 +112,32 @@ void flapper_movement(Flapper *flapper) {
 
     velY += gravity;
     flapper->y += velY;
-    flapper->flapperRect.y = flapper->y;
-    flapper->x = flapper->flapperRect.x;
+    flapper->rect.y = flapper->y;
+    flapper->x = flapper->rect.x;
     break;
   }
 }
 
-void collisions(Flapper *flapper) {
+void collisions(Flapper *flapper, Pipe *pipes) {
   //collisions with the sky and floor
-  if(flapper->flapperRect.y <= -70 || flapper->flapperRect.y >= SCREENHEIGHT-115) { // the subtractions are because the models rectangle "hitbox" is bigger than the texture
+  if(flapper->rect.y <= 0 || flapper->rect.y+flapper->rect.height >= SCREENHEIGHT) { // the subtractions are because the models rectangle "hitbox" is bigger than the texture
     flapper->alive = 0;
+  }
+  printf("Flapper.topedge=%.1f -- flapper.bottomedge=%.1f\n", flapper->rect.y, flapper->rect.y+256);
+
+  // collisions with pipes
+  for(int i=0; i<PIPE_COUNT; i++){
+    if(CheckCollisionRecs(flapper->rect, pipes[i].rect)){
+      flapper->alive = 0;
+      printf("Alive=%d\n", flapper->alive);
+    }
   }
 }
 
 int main(void) {
 
-  bool playing = false;
+  bool playing   = false;
+  bool exit_game = false;
 
   InitWindow(SCREENWIDTH, SCREENHEIGHT, "Flappy Guy");
   SetTargetFPS(60);
@@ -110,11 +153,12 @@ int main(void) {
   Texture2D cloud = LoadTexture("./assets/cloud1.png");
 
   // init flapper
-  Flapper flapper = Flapper_Init(25, SCREENHEIGHT/2);
+  Flapper flapper = Flapper_Init(25, 100);
 
   // init pipes
+  Texture2D pipeTexture = LoadTexture("./assets/obstacle.png");
   Pipe pipes[PIPE_COUNT];
-  Init_Pipes(pipes, PIPE_COUNT, 0);
+  Init_Pipes(pipes, PIPE_COUNT, 0, pipeTexture);
 
   // camera settings
   Camera2D camera = {0};
@@ -124,7 +168,7 @@ int main(void) {
   camera.rotation = 0;
   camera.zoom     = 1.0f;
 
-  while (!WindowShouldClose()) { // game loop
+  while (!WindowShouldClose() && !exit_game) { // game loop
 
     camera.target.x = flapper.x+500;
 
@@ -139,32 +183,36 @@ int main(void) {
     ClearBackground(SKYBLUE);
 
     if(!playing){
-      DrawText("Press space to start", 50, 100, 50, BLACK);
-      if(IsKeyPressed(KEY_SPACE)) playing = true;
+      main_menu(&playing, &exit_game);
       EndDrawing();
     }else{
       flapper_movement(&flapper);
-      collisions(&flapper);
-
+      collisions(&flapper, &pipes);
+      
       BeginMode2D(camera);
+      
       DrawTexture(cloud, 40, 20, WHITE);
-
+      DrawRectangleLines(flapper.rect.x, flapper.rect.y, flapper.rect.width, flapper.rect.height, BLACK);
+      
       // draw pipes
       for(int i=0; i<PIPE_COUNT; i++){
         if(!pipes[i].active) continue;
-
-        DrawTexture(pipes[i].texture, pipes[i].pipeRect.x, pipes[i].pipeRect.y, WHITE);
+        DrawTexture(pipes[i].texture, pipes[i].rect.x, pipes[i].rect.y, WHITE);
+        DrawRectangleLines(pipes[i].rect.x, pipes[i].rect.y, pipes[i].rect.width/2, pipes[i].rect.height/2, BLACK);
       }
 
-      // printf("flapper.x=%f flapper.y=%f\n flapperrect.x%f flapperrect.height%f\n flapper.alive=%i\n", flapper.x, flapper.y, flapper.flapperRect.x, flapper.flapperRect.height, flapper.alive); // debug line
+      if(!flapper.alive){
+        playing = false;
+
+      }
+
+      // printf("flapper.x=%f flapper.y=%f\n flapperrect.x%f flapperrect.height%f\n flapper.alive=%i\n", flapper.x, flapper.y, flapper.rect.x, flapper.rect.height, flapper.alive); // debug line
       DrawTexture(flapper.texture, flapper.x, flapper.y, WHITE);
 
       EndMode2D();
       EndDrawing();
     }
   }
-  UnloadMusicStream(soundtrack);
-  CloseAudioDevice();
-  CloseWindow();
+  close_game();
 }
 
