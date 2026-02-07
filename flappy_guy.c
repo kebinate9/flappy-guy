@@ -1,7 +1,7 @@
 #include <raylib.h>
 #include <stdio.h>
 
-#define PIPES_COUNT 10
+#define PIPES_COUNT 100
 #define WINWIDTH    1200
 #define WINHEIGHT   800
 
@@ -19,34 +19,35 @@ typedef struct Pipes {
 } Pipes;
 
 static bool playing;
-static bool shouldQuit;
-static bool shouldPause;
 
 static void initGame(void);
 static void updateGame(void);
 static void drawMenu(void);
 static int  closeGame(void);
 
-static Flapper flapper               = {0};
-static Pipes   pipes[PIPES_COUNT*2]    = {0};
+static Flapper flapper                = {0};
+static Pipes   pipes[PIPES_COUNT*2]   = {0};
 
 static Texture2D flapperTexture;
 static Texture2D flapperTexture2;
 static Texture2D pipesTexture;
+static Texture2D pipesTexture2;
 static Texture2D cloudTexture;
+
+static Camera2D camera;
 
 int main (void)
 {
   InitWindow(WINWIDTH, WINHEIGHT, "Flappy Guy");
   SetTargetFPS(60);
 
-  flapperTexture = LoadTexture("./assets/flapper1.png");
+  flapperTexture  = LoadTexture("./assets/flapper1.png");
   flapperTexture2 = LoadTexture("./assets/flapper2.png");
-  pipesTexture   = LoadTexture("./assets/obstacle.png");
-  cloudTexture   = LoadTexture("./assets/cloud1.png");
+  pipesTexture    = LoadTexture("./assets/obstacle.png");
+  pipesTexture2   = LoadTexture("./assets/obstacle2.png");
+  cloudTexture    = LoadTexture("./assets/cloud1.png");
 
   initGame();
-
   while(!WindowShouldClose())
   {
     updateGame();
@@ -57,10 +58,8 @@ int main (void)
 void initGame()
 {
   playing = true;
+  // score = 0;
 
-  // ----------------------------
-  // initialise flapper and pipes
-  // ----------------------------
   flapper.pos = (Vector2){25, 100};
   flapper.rec.x      = flapper.pos.x;
   flapper.rec.y      = flapper.pos.y;
@@ -68,17 +67,37 @@ void initGame()
   flapper.rec.height = flapperTexture.height/5;
   flapper.tex = flapperTexture;
 
-  for (int i = 0; i < PIPES_COUNT; i++)
+  for (int i = 0; i < PIPES_COUNT/2; i++)
   {
     pipes[i].x = i * 200;
-    pipes[i].y = GetRandomValue(WINHEIGHT-300, WINHEIGHT);
-    pipes[i].rec.x = pipes[i].x + 130.0f;
-    pipes[i].rec.y = pipes[i].y + 120.0f;
-    pipes[i].rec.width = pipesTexture.width/8;
-    pipes[i].rec.height = pipesTexture.height/4;
+    pipes[i].y = GetRandomValue(WINHEIGHT-550, WINHEIGHT-200);
+    pipes[i].rec.x = pipes[i].x + 260.0f;
+    pipes[i].rec.y = pipes[i].y + 240.0f;
+    pipes[i].rec.width = pipesTexture.width/4;
+    pipes[i].rec.height = pipesTexture.height/2;
     pipes[i].tex = pipesTexture;
+    pipes[i].tex.width  *= 2;
+    pipes[i].tex.height *= 2;
   }
 
+  for (int i = PIPES_COUNT/2, j = 0; i < PIPES_COUNT; i++, j++)
+  {
+    pipes[i].x = j * 200;
+    pipes[i].y = GetRandomValue(-200, 0);
+    pipes[i].rec.x = pipes[i].x + 300.0f;
+    pipes[i].rec.y = pipes[i].y + 240.0f;
+    pipes[i].rec.width = pipesTexture2.width/4;
+    pipes[i].rec.height = pipesTexture2.height/2;
+    pipes[i].tex = pipesTexture2;
+    pipes[i].tex.width  *= 2;
+    pipes[i].tex.height *= 2;
+  }
+
+  camera.offset.x = WINWIDTH/2;
+  camera.offset.y = WINHEIGHT/2;
+  camera.target.y = WINHEIGHT/2;
+  camera.rotation = 0;
+  camera.zoom     = 1.0f;
 }
 
 void flapperMovement()
@@ -87,20 +106,29 @@ void flapperMovement()
   static const float gravity   = 0.5f;
   static const float jumpForce = -10.0f;
 
-  flapper.pos.x += 1;
+  flapper.pos.x += 3;
 
-  if(IsKeyPressed(KEY_SPACE)) velocity = jumpForce;
-
-  if(IsKeyDown(KEY_SPACE)) {
-    flapper.tex = flapperTexture2;
-  } else {
-    flapper.tex = flapperTexture;
+  if(IsKeyPressed(KEY_SPACE))
+  {
+    velocity = jumpForce;
   }
 
-  velocity      += gravity;
-  flapper.pos.y += velocity;
-  flapper.rec.x  = flapper.pos.x + 100;
-  flapper.rec.y  = flapper.pos.y + 70;
+  if(IsKeyDown(KEY_SPACE))
+  {
+    flapper.tex = flapperTexture2;
+    velocity      += gravity/2;
+    flapper.pos.y += velocity/8;
+    flapper.rec.x  = flapper.pos.x + 100;
+    flapper.rec.y  = flapper.pos.y + 70;
+  }
+  else
+  {
+    flapper.tex = flapperTexture;
+    velocity      += gravity;
+    flapper.pos.y += velocity;
+    flapper.rec.x  = flapper.pos.x + 100;
+    flapper.rec.y  = flapper.pos.y + 70;
+  }
 }
 
 void checkCollision()
@@ -118,31 +146,31 @@ void checkCollision()
 void drawGame()
 {
   BeginDrawing();
-
+    BeginMode2D(camera);
     ClearBackground(SKYBLUE);
-
     DrawTexture(flapper.tex, flapper.pos.x, flapper.pos.y, WHITE);
-    DrawRectangleLines(flapper.rec.x, flapper.rec.y, flapper.rec.width, flapper.rec.height, BLACK);
 
     for (int i = 0; i < PIPES_COUNT; i++)
     {
       DrawTexture(pipes[i].tex, pipes[i].x, pipes[i].y, WHITE);
-      DrawRectangleLines(pipes[i].rec.x, pipes[i].rec.y, pipes[i].rec.width, pipes[i].rec.height, BLACK);
     }
 
+    EndMode2D();
   EndDrawing();
 }
 
 void updateGame()
 {
-  if(playing)
+  if (playing)
   {
     flapperMovement();
     drawGame();
+    camera.target.x = flapper.pos.x + 500;
     checkCollision();
     if(IsKeyPressed(KEY_P)) playing = false;
-  } 
-  else{
+  }
+  else
+  {
     drawMenu();
   }
 }
@@ -159,7 +187,7 @@ int closeGame()
 
 void drawMenu(){
   static int currentItem = 0;
-  static int menuCount   = 3;
+  static int menuCount   = 2;
 
   if(IsKeyPressed(KEY_DOWN)){
     currentItem ++;
@@ -168,7 +196,7 @@ void drawMenu(){
 
   if(IsKeyPressed(KEY_UP)){
     currentItem --;
-    if(currentItem<0) currentItem = menuCount - 1;
+    if(currentItem < 0) currentItem = menuCount - 1;
   }
 
   if(currentItem == 0 && IsKeyPressed(KEY_ENTER))
@@ -181,14 +209,13 @@ void drawMenu(){
     }
   }
 
-  if(currentItem == 2 && IsKeyPressed(KEY_ENTER)) closeGame();
+  if(currentItem == 1 && IsKeyPressed(KEY_ENTER)) closeGame();
 
   BeginDrawing();
   
     ClearBackground(SKYBLUE);
     DrawText("PLAY",     WINWIDTH/2, WINHEIGHT/4, 50, currentItem == 0 ? WHITE : BLACK);
-    DrawText("SETTINGS", WINWIDTH/2, WINHEIGHT/3, 50, currentItem == 1 ? WHITE : BLACK);
-    DrawText("QUIT",     WINWIDTH/2, WINHEIGHT/2, 50, currentItem == 2 ? WHITE : BLACK);
+    DrawText("QUIT",     WINWIDTH/2, WINHEIGHT/2, 50, currentItem == 1 ? WHITE : BLACK);
 
   EndDrawing();
 }
